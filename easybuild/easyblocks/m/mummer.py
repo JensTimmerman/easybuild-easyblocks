@@ -56,8 +56,9 @@ class EB_MUMmer(ConfigureMake):
     def make_module_extra(self):
         """Add the root to path, since this is where the binaries are located"""
         txt = super(self.__class__, self).make_module_extra()
-        txt += self.moduleGenerator.prepend_paths("PATH", [self.cfg['start_dir']] )
-        txt += self.moduleGenerator.prepend_paths("PERL5LIB", [os.path.join(self.cfg['start_dir'], "scripts")])
+        subdir = "%s%s" % (self.name, self.version)
+        txt += self.moduleGenerator.prepend_paths("PATH", [subdir] )
+        txt += self.moduleGenerator.prepend_paths("PERL5LIB", [os.path.join(subdir, "scripts")])
         return txt
 
     def sanity_check_step(self):
