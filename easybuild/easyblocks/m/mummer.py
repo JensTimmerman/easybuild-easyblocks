@@ -1,81 +1,83 @@
-## 
-# This file is an EasyBuild recipy as per https://github.com/hpcugent/easybuild
+##
+# Copyright 2012-2013 Ghent University
 #
-# Copyright:: Copyright 2012-2013 University of Luxembourg/Luxembourg Centre for Systems Biomedicine
-# Authors::   Cedric Laczny <cedric.laczny@uni.lu>, Fotis Georgatos <fotis.georgatos@uni.lu>, Kenneth Hoste
-# License::   MIT/GPL
-# $Id$
+# This file is part of EasyBuild,
+# originally created by the HPC team of the University of Ghent (http://ugent.be/hpc).
 #
-# This work implements a part of the HPCBIOS project and is a component of the policy:
-# http://hpcbios.readthedocs.org/en/latest/HPCBIOS_2012-94.html
+# http://github.com/hpcugent/easybuild
+#
+# EasyBuild is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation v2.
+#
+# EasyBuild is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with EasyBuild.  If not, see <http://www.gnu.org/licenses/>.
 ##
 """
-EasyBuild support for building and installing MUMmer, implemented as an easyblock
+EasyBuild support for building and installing MUMer, implemented as an easyblock
 
-@authors: Cedric Laczny (Uni.Lu), Fotis Georgatos (Uni.Lu), Kenneth Hoste (UGent)
+@author Jens Timmerman
 """
-
 import os
-import shutil
 
 from easybuild.easyblocks.generic.configuremake import ConfigureMake
+from easybuild.tools.filetools import run_cmd
 
 
 class EB_MUMmer(ConfigureMake):
-    """
-    Support for building MUMmer (rapidly aligning entire genomes)
-    - build with make install 
-    """
-
+    """Support for building and installing MUMmer."""
 
     def __init__(self, *args, **kwargs):
-        """Define list of bin/aux_bin files."""
-
+        """Constructor, set to build in installdir"""
         super(EB_MUMmer, self).__init__(*args, **kwargs)
-
-        self.bin_files = ["mummer", "annotate", "combineMUMs", "delta-filter", "gaps", "mgaps",
-                          "repeat-match", "show-aligns", "show-coords", "show-tiling", "show-snps",
-                          "show-diff", "exact-tandems", "mapview", "mummerplot", "nucmer", "promer",
-                          "run-mummer1", "run-mummer3", "nucmer2xfig", "dnadiff"]
-        self.aux_bin_files = ["postnuc", "postpro", "prenuc", "prepro"]
+        self.build_in_installdir = True
 
     def configure_step(self):
-        """No configure"""
-        pass
+        """Configure MUMmer build by running make check."""
+        cmd = "%s make check %s" % (
+            self.cfg['preconfigopts'], self.cfg['configopts'])
+        run_cmd(cmd, log_all=True,
+                simple=True, log_output=True)
+        # build in installation directory
 
-    def build_step(self):
-        """Build via 'make install."""
-        self.cfg.update('makeopts', 'install')
-
+    def make_step(self):
+        """Build MUMer"""
+        makeopts = self.cfg['makeopts']
+        # set all as default
+        # make argument
+        makeopts = " ".join(
+            [makeopts, 'all'])
         super(EB_MUMmer, self).build_step()
 
-    def install_step(self):
-        """
-        Install by copying files to install dir
-        """
-        # Get executable files: for i in $(find . -maxdepth 1 -type f -perm +111 -print | sed -e 's/\.\///g' | awk '{print "\""$0"\""}' | grep -vE "\.sh|\.html"); do echo -ne "$i, "; done && echo
-        for srcdir, dest, files in [
-                                    (self.cfg['start_dir'], 'bin', self.bin_files),
-                                    (os.path.join(self.cfg['start_dir'], 'aux_bin'), os.path.join('bin', 'aux_bin'),
-                                     self.aux_bin_files)
-                                   ]:
-
-            destdir = os.path.join(self.installdir, dest)        
-            srcfile = None
-            try:
-                os.makedirs(destdir)
-                for filename in files:
-                    srcfile = os.path.join(srcdir, filename)
-                    shutil.copy2(srcfile, destdir)
-            except OSError, err:
-                self.log.error("Copying %s to installation dir %s failed: %s" % (srcfile, destdir, err))
+    def make_module_extra(self):
+        """Add the root to path, since this is where the binaries are located"""
+        txt = super(self.__class__, self).make_module_extra()
+        txt += "prepend-path\t%s\t\t%s\n" % ("PATH", self.cfg['start_dir'])
+        txt += "prepend-path\t%s\t\t%s\n" % (
+            "PERL5LIB", os.path.join(self.cfg['start_dir'], "scripts"))
+        self.log.debug("make_module_extra in EB_MUMmer returned: %s " % txt)
+        return txt
 
     def sanity_check_step(self):
-        """Custom sanity check for MUMmer."""
-
-        custom_paths = {
-                        'files': ['bin/%s' % x for x in self.bin_files] +
-                                 ['bin/aux_bin/%s' % x for x in self.aux_bin_files],
-                        'dirs': []
-                       }
+        """Custom sanity check for OpenFOAM"""
+        custom_paths = {'files': [os.path.join(self.cfg['start_dir'], x) for x in ['mapview', 'combineMUMs', 'mgaps',
+                                                                                   'run-mummer3', 'show-coords',
+                                                                                   'show-snps', 'show-aligns',
+                                                                                   'dnadiff', 'mummerplot',
+                                                                                   'nucmer2xfig', 'annotate',
+                                                                                   'promer', 'show-diff', 'nucmer',
+                                                                                   'delta-filter', 'src',
+                                                                                   'run-mummer1', 'gaps', 'mummer',
+                                                                                   'repeat-match', 'show-tiling',
+                                                                                   'exact-tandems',
+                                                                                   ]
+                                  ],
+                        'dirs': [os.path.join(self.cfg['start_dir'], x) for x in ['scripts', 'docs', 'aux_bin']]
+                        }
+        self.log.info("Customized sanity check paths: %s" % custom_paths)
         super(EB_MUMmer, self).sanity_check_step(custom_paths=custom_paths)
