@@ -53,8 +53,12 @@ class VersionIndependendPythonPackage(PythonPackage):
     def install_step(self):
         """Custom install procedure to skip selection of python package versions."""
         pylibdir = os.path.join(self.installdir, self.pylibdir)
-        args = "install --prefix=%(path)s --install-lib=%(path)s/%(pylibdir)s" % {'path': self.installdir,
-                                                                                  'pylibdir': self.pylibdir}
+        args = "%(preinstallopts)s install --prefix=%(path)s --install-lib=%(path)s/%(pylibdir)s %(installopts)" % {
+            'path': self.installdir,
+            'pylibdir': self.pylibdir,
+            'installopts': self.cfg['installopts'],
+            'preinstallopts': self.cfg['preinstallopts'],
+        }
 
         env.setvar('PYTHONPATH', '%s:%s' % (pylibdir, os.getenv('PYTHONPATH')))
 
